@@ -70,7 +70,7 @@ class PatchDiscriminator(nn.Module):
         XY = torch.cat([X, Y], dim = 1)
         return self.model(XY)
 
-class SkipGenerator(nn.Module):
+class UNetGenerator(nn.Module):
     def __init__(
             self, 
             net_in_channels, 
@@ -130,20 +130,3 @@ class SkipGenerator(nn.Module):
         D8 = self.dec8(torch.cat([D7, E1], dim = 1))
 
         return D8
-
-def test_discriminator():
-    X = torch.randn((1, 3, 256, 256))
-    Y = torch.randn((1, 3, 256, 256))
-    model = PatchDiscriminator(net_in_channels=3)
-    preds = model(X, Y)
-    print('Discriminator Result:', preds.shape)
-
-def test_generator():
-    x = torch.randn((1, 3, 256, 256))
-    model = SkipGenerator(net_in_channels=3, net_out_channels=3)
-    preds = model(x)
-    print('Generator Result:', preds.shape)
-
-if __name__== '__main__':
-    test_discriminator()
-    test_generator()

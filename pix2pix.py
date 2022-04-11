@@ -1,5 +1,5 @@
 import constants
-from networks import SkipGenerator, PatchDiscriminator
+from networks import UNetGenerator, PatchDiscriminator
 
 import torch
 import torch.nn as nn
@@ -16,7 +16,7 @@ class Pix2Pix:
             checkpoint_filename,
             examples_folder,
             discriminator = PatchDiscriminator,
-            generator = SkipGenerator,
+            generator = UNetGenerator,
             num_examples = 1
         ):
         self.train_dataset = train_dataset
