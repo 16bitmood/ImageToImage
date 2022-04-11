@@ -10,7 +10,7 @@ class EncoderBlock(nn.Module):
                 in_channels, out_channels, kernel_size=4, 
                 stride=stride, padding=1, bias=False, padding_mode='reflect'
             ),
-            nn.BatchNorm2d(out_channels),
+            nn.InstanceNorm2d(out_channels, affine=False, track_running_stats=False),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
@@ -25,9 +25,10 @@ class DecoderBlock(nn.Module):
                 in_channels, out_channels, kernel_size=4, 
                 stride=stride, padding=1, bias=False
             ),
-            nn.BatchNorm2d(out_channels),
+            nn.InstanceNorm2d(out_channels, affine=False, track_running_stats=False),
             nn.ReLU()
         ])
+
         if dropout_rate is not None:
             layers.append(nn.Dropout(0.5))
 
@@ -79,54 +80,43 @@ class UNetGenerator(nn.Module):
             decoder_filters = [512, 512, 512, 512, 256, 128, 64]):
         super().__init__()
 
-        self.enc1 = nn.Sequential(
+        # Encoder
+        self.encoder_layers = nn.ModuleList([nn.Sequential(
             nn.Conv2d(net_in_channels, encoder_filters[0], 4, 2, 1, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
-        )
-        self.enc2 = EncoderBlock(encoder_filters[0], encoder_filters[1])
-        self.enc3 = EncoderBlock(encoder_filters[1], encoder_filters[2])
-        self.enc4 = EncoderBlock(encoder_filters[2], encoder_filters[3])
-        self.enc5 = EncoderBlock(encoder_filters[3], encoder_filters[4])
-        self.enc6 = EncoderBlock(encoder_filters[4], encoder_filters[5])
-        self.enc7 = EncoderBlock(encoder_filters[5], encoder_filters[6])
+        )])
 
-        # See Errata
-        self.enc8 = nn.Sequential(
-            nn.Conv2d(encoder_filters[6], encoder_filters[7], 4, 2, 1),
+        for i in range(len(encoder_filters)-2):
+            self.encoder_layers.append(
+                EncoderBlock(encoder_filters[i], encoder_filters[i+1])
+            )
+
+        # Note: See Errata
+        self.encoder_layers.append(nn.Sequential(
+            nn.Conv2d(encoder_filters[-2], encoder_filters[-1], 4, 2, 1),
             nn.ReLU()
-        )
+        ))
 
-        self.dec1 = DecoderBlock(encoder_filters[-1], decoder_filters[0])
-        self.dec2 = DecoderBlock(2 * decoder_filters[0], decoder_filters[1])
-        self.dec3 = DecoderBlock(2 * decoder_filters[1], decoder_filters[2])
-        self.dec4 = DecoderBlock(2 * decoder_filters[2], decoder_filters[3])
-        self.dec5 = DecoderBlock(2 * decoder_filters[3], decoder_filters[4])
-        self.dec6 = DecoderBlock(2 * decoder_filters[4], decoder_filters[5])
-        self.dec7 = DecoderBlock(2 * decoder_filters[5], decoder_filters[6])
+        # Decoder
+        self.decoder_layers = nn.ModuleList([DecoderBlock(encoder_filters[-1], decoder_filters[0])])
 
-        self.dec8 = nn.Sequential(
-            nn.ConvTranspose2d(2 * decoder_filters[6], net_out_channels, 4,2,1),
+        for i in range(len(decoder_filters)-1):
+            self.decoder_layers.append(DecoderBlock(2*decoder_filters[i], decoder_filters[i+1]))
+
+        self.decoder_layers.append(nn.Sequential(
+            nn.ConvTranspose2d(2*decoder_filters[-1], net_out_channels, 4,2,1),
             nn.Tanh()
-        )
+        ))
 
     def forward(self, X):
-        E1 = self.enc1(X)
-        E2 = self.enc2(E1)
-        E3 = self.enc3(E2)
-        E4 = self.enc4(E3)
-        E5 = self.enc5(E4)
-        E6 = self.enc6(E5)
-        E7 = self.enc7(E6)
+        enc_activations = [X]
+        for enc in self.encoder_layers:
+            enc_activations.append(enc(enc_activations[-1]))
 
-        E8 = self.enc8(E7)
-        D1 = self.dec1(E8)
+        activation = self.decoder_layers[0](enc_activations[-1])
+        
+        for i in range(1, len(self.decoder_layers)):
+            activation = torch.cat([activation, enc_activations[-(i+1)]], dim = 1)
+            activation = self.decoder_layers[i](activation)
 
-        D2 = self.dec2(torch.cat([D1, E7], dim = 1))
-        D3 = self.dec3(torch.cat([D2, E6], dim = 1))
-        D4 = self.dec4(torch.cat([D3, E5], dim = 1))
-        D5 = self.dec5(torch.cat([D4, E4], dim = 1))
-        D6 = self.dec6(torch.cat([D5, E3], dim = 1))
-        D7 = self.dec7(torch.cat([D6, E2], dim = 1))
-        D8 = self.dec8(torch.cat([D7, E1], dim = 1))
-
-        return D8
+        return activation
