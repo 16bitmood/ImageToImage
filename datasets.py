@@ -15,7 +15,7 @@ class SideBySideDataset(Dataset):
     def __getitem__(self, index):
         img_file = self.list_files[index]
         img_path = os.path.join(self.root_dir, img_file)
-        image = Image.open(img_path)
+        image = Image.open(img_path).convert('RGB')
 
         w,h = image.size
 
@@ -31,3 +31,29 @@ class SideBySideDataset(Dataset):
             input_image, output_image = img2, img1
 
         return input_image, output_image
+
+class UnpairedDataset(Dataset):
+    def __init__(self, root_dir_X, root_dir_Y):
+        self.root_dir_X   = root_dir_X
+        self.list_files_X = os.listdir(self.root_dir_X)
+
+        self.root_dir_Y   = root_dir_Y
+        self.list_files_Y = os.listdir(self.root_dir_Y)
+
+    def __len__(self):
+        return min(len(self.list_files_X), len(self.list_files_Y))
+
+    def __getitem__(self, index):
+        img_file_X = self.list_files_X[index]
+        img_path_X = os.path.join(self.root_dir_X, img_file_X)
+        image_X = Image.open(img_path_X).convert('RGB')
+
+        img_file_Y = self.list_files_Y[index]
+        img_path_Y = os.path.join(self.root_dir_Y, img_file_Y)
+        image_Y = Image.open(img_path_Y).convert('RGB')
+
+        image_X = constants.BASE_TRANSFORMATIONS(image_X)
+        image_Y = constants.BASE_TRANSFORMATIONS(image_Y)
+
+        return image_X, image_Y
+    

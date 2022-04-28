@@ -1,51 +1,61 @@
-from turtle import forward
 import torch
 import torch.nn as nn
+
+class ConvBlock(nn.Module):
+    def __init__(self, in_c, out_c, kind, act, drop=None, **kwargs):
+        super().__init__()
+        Conv = nn.Conv2d if kind=='down' else nn.ConvTranspose2d 
+
+        self.block = [Conv(in_c, out_c, **kwargs)]
+        self.block.append(
+            nn.InstanceNorm2d(out_c, affine=False, track_running_stats=False))
+
+        if act == 'relu':
+            self.block.append(nn.ReLU(True))
+        elif act == 'leaky':
+            self.block.append(nn.LeakyReLU(0.2, True))
+        elif act != 'none':
+            raise Exception(f'Invalid Activation')
+
+        if drop is not None:
+            self.block.append(nn.Dropout(drop))
+
+        self.block = nn.Sequential(*self.block)
+
+    def forward(self, X):
+        return self.block(X)
 
 class EncoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=2):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Conv2d(
-                in_channels, out_channels, kernel_size=4, 
-                stride=stride, padding=1, bias=False, padding_mode='reflect'
-            ),
-            nn.InstanceNorm2d(out_channels, affine=False, track_running_stats=False),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
+        self.block = ConvBlock(
+            in_channels, out_channels, kind='down', act='leaky',
+            kernel_size=4,  stride=stride, padding=1, bias=False, padding_mode='reflect')
 
     def forward(self, X):
-        return self.model(X)
+        return self.block(X)
     
 class DecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=2, dropout_rate=None):
         super().__init__()
-        layers = nn.ModuleList([
-            nn.ConvTranspose2d(
-                in_channels, out_channels, kernel_size=4, 
-                stride=stride, padding=1, bias=False
-            ),
-            nn.InstanceNorm2d(out_channels, affine=False, track_running_stats=False),
-            nn.ReLU()
-        ])
-
-        if dropout_rate is not None:
-            layers.append(nn.Dropout(0.5))
-
-        self.model = nn.Sequential(*layers)
+        self.block = ConvBlock(
+            in_channels, out_channels, kind='up', act='relu', drop=0.5,
+            kernel_size=4,  stride=stride, padding=1, bias=False)
 
     def forward(self, X):
-        return self.model(X)
+        return self.block(X)
 
 class PatchDiscriminator(nn.Module):
-    def __init__(self, net_in_channels, filters=[64, 128, 256, 512]):
-        # C64-C128-C256-C512
+    def __init__(self, net_in_channels, conditional=True, filters=[64, 128, 256, 512]):
         super().__init__()
         # Notes:
-        # - We get Two Images Stacked on last axis, so first in_channels = in_channels*2
-
+        # - For conditional, We get 2 images stacked on last axis
+        #   so first in_channels = in_channels*2
+        
+        self.conditional = conditional
+        net_in_channels = net_in_channels*2 if conditional else net_in_channels
         initial = nn.Sequential(
-            nn.Conv2d(net_in_channels*2, filters[0], 4, 2, padding=1, padding_mode='reflect'),
+            nn.Conv2d(net_in_channels, filters[0], 4, 2, padding=1, padding_mode='reflect'),
             nn.LeakyReLU(0.2)
         )
 
@@ -67,9 +77,12 @@ class PatchDiscriminator(nn.Module):
 
         self.model = nn.Sequential(*layers)
         
-    def forward(self, X, Y):
-        XY = torch.cat([X, Y], dim = 1)
-        return self.model(XY)
+    def forward(self, X, Y=None):
+        if self.conditional:
+            XY = torch.cat([X, Y], dim = 1)
+            return self.model(XY)
+        else:
+            return self.model(X)
 
 class UNetGenerator(nn.Module):
     def __init__(
@@ -120,3 +133,51 @@ class UNetGenerator(nn.Module):
             activation = self.decoder_layers[i](activation)
 
         return activation
+
+class ResNetBlock(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        self.block = nn.Sequential(
+            ConvBlock(channels, channels, kind='down', act='relu', kernel_size=3, padding=1),
+            ConvBlock(channels, channels, kind='down', act='none', kernel_size=3, padding=1),
+        )
+
+    def forward(self, x):
+        return x + self.block(x)
+
+class ResNetGenerator(nn.Module):
+    def __init__(self, net_in_channels, net_out_channels, filters = [64, 128, 256], num_residuals=9):
+        super().__init__()
+
+        self.encoder_layers = nn.ModuleList()
+        self.encoder_layers.append(nn.Sequential(
+            nn.Conv2d(net_in_channels, filters[0], kernel_size=7, stride=1, padding=3, padding_mode="reflect"),
+            nn.InstanceNorm2d(filters[0]),
+            nn.ReLU(inplace=True),
+        ))
+
+        for i in range(len(filters)-1):
+            self.encoder_layers.append(ConvBlock( 
+                filters[i], filters[i+1], kind='down', act='relu', kernel_size=3, stride=2, padding=1))
+        
+        self.residual_layers = nn.Sequential(*[ResNetBlock(filters[-1]) for _ in range(num_residuals)])
+
+        self.decoder_layers = nn.ModuleList()
+        for i in range(len(filters)-1):
+            self.decoder_layers.append(ConvBlock(
+                filters[-(i+1)], filters[-(i+2)], kind='up', act='relu', kernel_size=3, stride=2, padding=1, output_padding=1))
+
+        self.decoder_layers.append(nn.Conv2d(
+            filters[0], net_out_channels, kernel_size=7, stride=1, padding=3, padding_mode="reflect"))
+
+        self.decoder_layers.append(nn.Tanh())
+
+    def forward(self, X):
+        for layer in self.encoder_layers:
+            X = layer(X)
+        for layer in self.residual_layers:
+            X = layer(X)
+        for layer in self.decoder_layers:
+            X = layer(X)
+
+        return X

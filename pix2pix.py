@@ -1,5 +1,7 @@
 import constants
-from networks import UNetGenerator, PatchDiscriminator
+from networks import ResNetGenerator, UNetGenerator, PatchDiscriminator
+
+import os
 
 import torch
 import torch.nn as nn
@@ -16,7 +18,8 @@ class Pix2Pix:
             checkpoint_filename,
             examples_folder,
             discriminator = PatchDiscriminator,
-            generator = UNetGenerator,
+            generator = ResNetGenerator,
+            loss_type = 'mse',
             num_examples = 1
         ):
         self.train_dataset = train_dataset
@@ -44,8 +47,7 @@ class Pix2Pix:
         self.D_scaler = torch.cuda.amp.GradScaler()
         self.G_scaler = torch.cuda.amp.GradScaler()
 
-
-        self.bce     = nn.BCEWithLogitsLoss()
+        self.loss = nn.MSELoss() if loss_type == 'mse' else nn.BCEWithLogitsLoss() 
         self.l1_loss = nn.L1Loss()
 
         if constants.LOAD_CHECKPOINT:
@@ -69,11 +71,11 @@ class Pix2Pix:
 
             with torch.cuda.amp.autocast():
                 D_real = self.D(X, Y)
-                D_real_loss = self.bce(D_real, torch.ones_like(D_real))
+                D_real_loss = self.loss(D_real, torch.ones_like(D_real))
 
                 Y_fake = self.G(X)
                 D_fake = self.D(X, Y_fake.detach()) 
-                D_fake_loss = self.bce(D_fake, torch.zeros_like(D_fake))
+                D_fake_loss = self.loss(D_fake, torch.zeros_like(D_fake))
 
                 D_loss = (D_real_loss + D_fake_loss) / 2
 
@@ -84,7 +86,7 @@ class Pix2Pix:
 
             with torch.cuda.amp.autocast():
                 D_fake = self.D(X, Y_fake)
-                G_fake_loss = self.bce(D_fake, torch.ones_like(D_fake))
+                G_fake_loss = self.loss(D_fake, torch.ones_like(D_fake))
                 L1 = self.l1_loss(Y_fake, Y) * constants.L1_LAMBDA
                 G_loss = G_fake_loss + L1
 
@@ -99,19 +101,19 @@ class Pix2Pix:
                     D_fake=torch.sigmoid(D_fake).mean().item(),
                 )
     
-    def save_examples(self, epoch):
+    def save_examples(self, epoch, n=None):
         folder = self.examples_folder
         i = iter(self.test_loader)
-        for n in range(self.num_examples):
+        for n in range(self.num_examples if n is None else n):
             X, Y = next(i)
             X, Y = X.to(constants.DEVICE), Y.to(constants.DEVICE)
 
             self.G.eval()
             with torch.no_grad():
                 Z = self.G(X)
-                save_image(Z*0.5 + 0.5, folder + f"/{epoch}_{n}_Y_fake.png")
-                save_image(X*0.5 + 0.5, folder + f"/{epoch}_{n}_X.png")
-                save_image(Y*0.5 + 0.5, folder + f"/{epoch}_{n}_Y.png")
+                save_image(Z*0.5 + 0.5, os.path.join(folder, f"/{epoch}_{n}_Y_fake.png"))
+                save_image(X*0.5 + 0.5, os.path.join(folder, f"/{epoch}_{n}_X.png"))
+                save_image(Y*0.5 + 0.5, os.path.join(folder, f"/{epoch}_{n}_Y.png"))
             self.G.train()
     
 
