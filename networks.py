@@ -75,8 +75,10 @@ class PatchDiscriminator(nn.Module):
             )
         )
 
+        layers.append(nn.Sigmoid())
+
         self.model = nn.Sequential(*layers)
-        
+
     def forward(self, X, Y=None):
         if self.conditional:
             XY = torch.cat([X, Y], dim = 1)

@@ -47,7 +47,7 @@ class Pix2Pix:
         self.D_scaler = torch.cuda.amp.GradScaler()
         self.G_scaler = torch.cuda.amp.GradScaler()
 
-        self.loss = nn.MSELoss() if loss_type == 'mse' else nn.BCEWithLogitsLoss() 
+        self.loss = nn.MSELoss() if loss_type == 'mse' else nn.BCELoss() 
         self.l1_loss = nn.L1Loss()
 
         if constants.LOAD_CHECKPOINT:
@@ -63,9 +63,9 @@ class Pix2Pix:
             self.save_examples(epoch)
 
     def train_one_epoch(self):
-        loop = tqdm(self.train_loader, leave=True)
+        pbar = tqdm(self.train_loader, leave=True)
 
-        for idx, (X, Y) in enumerate(loop):
+        for idx, (X, Y) in enumerate(pbar):
             X = X.to(constants.DEVICE)
             Y = Y.to(constants.DEVICE)
 
@@ -96,7 +96,7 @@ class Pix2Pix:
             self.G_scaler.update()
 
             if idx % 10 == 0:
-                loop.set_postfix(
+                pbar.set_postfix(
                     D_real=torch.sigmoid(D_real).mean().item(),
                     D_fake=torch.sigmoid(D_fake).mean().item(),
                 )

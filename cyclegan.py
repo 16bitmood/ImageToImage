@@ -61,7 +61,7 @@ class CycleGAN:
         self.D_scaler = torch.cuda.amp.GradScaler()
         self.G_scaler = torch.cuda.amp.GradScaler()
 
-        self.loss = nn.MSELoss() if loss_type == 'mse' else nn.BCEWithLogitsLoss() 
+        self.loss = nn.MSELoss() if loss_type == 'mse' else nn.BCELoss() 
         self.l1_loss = nn.L1Loss()
 
         if constants.LOAD_CHECKPOINT:
@@ -69,14 +69,14 @@ class CycleGAN:
 
     def train(self):
         for epoch in range(constants.NUM_EPOCHS):
-            self.train_one_epoch()
+            self.train_one_epoch(epoch)
 
             if constants.SAVE_CHECKPOINT and epoch % 5 == 0:
                 self.save_checkpoint()
 
             self.save_examples(epoch)
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, epoch):
         pbar = tqdm(self.train_loader, leave=True)
 
         for idx, (image_X, image_Y) in enumerate(pbar):
@@ -118,7 +118,7 @@ class CycleGAN:
             with torch.cuda.amp.autocast():
                 # Adversarial Loss
                 D_X_fake = self.D_X(fake_X)
-                D_Y_fake = self.D_X(fake_Y)
+                D_Y_fake = self.D_Y(fake_Y)
 
                 G_YX_loss = self.loss(D_X_fake, torch.ones_like(D_X_fake))
                 G_XY_loss = self.loss(D_Y_fake, torch.ones_like(D_Y_fake))
@@ -133,7 +133,7 @@ class CycleGAN:
 
                 G_loss = (
                     G_XY_loss + G_YX_loss
-                    + constants.L1_LAMBDA*(cycle_X_loss + cycle_Y_loss)
+                    + constants.L1_LAMBDA_CYCLE*(cycle_X_loss + cycle_Y_loss)
                 )
 
                 # Identity Loss
@@ -146,6 +146,17 @@ class CycleGAN:
             self.G_scaler.scale(G_loss).backward()
             self.G_scaler.step(self.opt_G)
             self.G_scaler.update()
+
+            if idx % 200 == 0:
+                self.save_examples(f'{epoch}_{idx}')
+
+            if idx % 10 == 0:
+                pbar.set_postfix(
+                    D_X_real=torch.sigmoid(D_X_real).mean().item(),
+                    D_Y_real=torch.sigmoid(D_Y_real).mean().item(),
+                    D_X_fake=torch.sigmoid(D_X_fake).mean().item(),
+                    D_Y_fake=torch.sigmoid(D_Y_fake).mean().item(),
+                )
     
     def save_examples(self, epoch, n = None):
         folder = self.examples_folder
