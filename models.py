@@ -18,7 +18,8 @@ def satellite_to_map_model():
         num_examples=3
     )
 
-    model.train()
+    # model.train()
+    model.save_examples('final', 20)
 
 def segmentation_to_facade_model():
     folder = os.path.abspath('data/segmentation_to_facade')
@@ -56,8 +57,30 @@ def horse_zebra():
 
     model.train()
 
+def apple_orange():
+    folder = os.path.abspath('data/apple_orange')
+    train_dataset = UnpairedDataset(
+        root_dir_X = os.path.join(folder, 'trainA'),
+        root_dir_Y = os.path.join(folder, 'trainB')
+    )
+    test_dataset = UnpairedDataset(
+        root_dir_X = os.path.join(folder, 'testA'),
+        root_dir_Y = os.path.join(folder, 'testB')
+    )
+
+    model = CycleGAN(
+        train_dataset, 
+        test_dataset,
+        os.path.join(folder, 'model.pth.tar'),
+        os.path.join(folder, 'example_outputs'),
+        num_examples=3,
+    )
+
+    model.train()
+
 
 if __name__ == '__main__':
-    # satellite_to_map_model()
+    satellite_to_map_model()
     # segmentation_to_facade_model()
-   horse_zebra()
+    # horse_zebra()
+    # apple_orange()

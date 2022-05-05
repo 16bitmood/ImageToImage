@@ -69,6 +69,7 @@ class CycleGAN:
 
     def train(self):
         for epoch in range(constants.NUM_EPOCHS):
+            print(f'Epoch {epoch}')
             self.train_one_epoch(epoch)
 
             if constants.SAVE_CHECKPOINT and epoch % 5 == 0:
@@ -107,6 +108,7 @@ class CycleGAN:
 
                 D_Y_loss = D_Y_real_loss + D_Y_fake_loss
 
+                # Total Loss
                 D_loss = (D_X_loss + D_Y_loss)/2
 
             self.opt_D.zero_grad()
@@ -149,6 +151,9 @@ class CycleGAN:
 
             if idx % 200 == 0:
                 self.save_examples(f'{epoch}_{idx}')
+
+            if idx % 500 == 0:
+                self.save_checkpoint()
 
             if idx % 10 == 0:
                 pbar.set_postfix(

@@ -8,7 +8,7 @@ class ConvBlock(nn.Module):
 
         self.block = [Conv(in_c, out_c, **kwargs)]
         self.block.append(
-            nn.InstanceNorm2d(out_c, affine=False, track_running_stats=False))
+            nn.InstanceNorm2d(out_c))
 
         if act == 'relu':
             self.block.append(nn.ReLU(True))
@@ -56,7 +56,7 @@ class PatchDiscriminator(nn.Module):
         net_in_channels = net_in_channels*2 if conditional else net_in_channels
         initial = nn.Sequential(
             nn.Conv2d(net_in_channels, filters[0], 4, 2, padding=1, padding_mode='reflect'),
-            nn.LeakyReLU(0.2)
+            nn.LeakyReLU(0.2, inplace=True)
         )
 
         layers = nn.ModuleList([initial])

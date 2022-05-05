@@ -55,6 +55,7 @@ class Pix2Pix:
 
     def train(self):
         for epoch in range(constants.NUM_EPOCHS):
+            print('Epoch {epoch}')
             self.train_one_epoch()
 
             if constants.SAVE_CHECKPOINT and epoch % 5 == 0:

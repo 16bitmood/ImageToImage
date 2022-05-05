@@ -41,14 +41,14 @@ class UnpairedDataset(Dataset):
         self.list_files_Y = os.listdir(self.root_dir_Y)
 
     def __len__(self):
-        return min(len(self.list_files_X), len(self.list_files_Y))
+        return max(len(self.list_files_X), len(self.list_files_Y))
 
     def __getitem__(self, index):
-        img_file_X = self.list_files_X[index]
+        img_file_X = self.list_files_X[index % len(self.list_files_X)]
         img_path_X = os.path.join(self.root_dir_X, img_file_X)
         image_X = Image.open(img_path_X).convert('RGB')
 
-        img_file_Y = self.list_files_Y[index]
+        img_file_Y = self.list_files_Y[index % len(self.list_files_Y)]
         img_path_Y = os.path.join(self.root_dir_Y, img_file_Y)
         image_Y = Image.open(img_path_Y).convert('RGB')
 
