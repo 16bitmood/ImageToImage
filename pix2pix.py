@@ -55,7 +55,7 @@ class Pix2Pix:
 
     def train(self):
         for epoch in range(constants.NUM_EPOCHS):
-            print('Epoch {epoch}')
+            print(f'Epoch {epoch}')
             self.train_one_epoch()
 
             if constants.SAVE_CHECKPOINT and epoch % 5 == 0:
@@ -112,9 +112,9 @@ class Pix2Pix:
             self.G.eval()
             with torch.no_grad():
                 Z = self.G(X)
-                save_image(Z*0.5 + 0.5, os.path.join(folder, f"/{epoch}_{n}_Y_fake.png"))
-                save_image(X*0.5 + 0.5, os.path.join(folder, f"/{epoch}_{n}_X.png"))
-                save_image(Y*0.5 + 0.5, os.path.join(folder, f"/{epoch}_{n}_Y.png"))
+                save_image(Z*0.5 + 0.5, os.path.join(folder, f"{epoch}_{n}_Y_fake.png"))
+                save_image(X*0.5 + 0.5, os.path.join(folder, f"{epoch}_{n}_X.png"))
+                save_image(Y*0.5 + 0.5, os.path.join(folder, f"{epoch}_{n}_Y.png"))
             self.G.train()
     
 

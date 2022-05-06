@@ -2,15 +2,15 @@ import torch
 import torchvision.transforms as transforms
 
 torch.backends.cudnn.benchmark = True
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 NUM_WORKERS = 2
 LOAD_CHECKPOINT = True
-SAVE_CHECKPOINT = False
+SAVE_CHECKPOINT = True
 
 NUM_EPOCHS = 200
 BATCH_SIZE = 1
 
-LEARNING_RATE = 1e-5
+LEARNING_RATE = 0.0002
 L1_LAMBDA = 100
 L1_LAMBDA_CYCLE = 10
 L1_LAMBDA_IDENTITY = 0

@@ -56,4 +56,3 @@ class UnpairedDataset(Dataset):
         image_Y = constants.BASE_TRANSFORMATIONS(image_Y)
 
         return image_X, image_Y
-    

@@ -125,7 +125,6 @@ class CycleGAN:
                 G_YX_loss = self.loss(D_X_fake, torch.ones_like(D_X_fake))
                 G_XY_loss = self.loss(D_Y_fake, torch.ones_like(D_Y_fake))
 
-
                 # Cycle Loss
                 cycle_X = self.G_YX(fake_Y)
                 cycle_Y = self.G_XY(fake_X)
@@ -152,7 +151,7 @@ class CycleGAN:
             if idx % 200 == 0:
                 self.save_examples(f'{epoch}_{idx}')
 
-            if idx % 500 == 0:
+            if idx % 500 == 0 and idx > 0:
                 self.save_checkpoint()
 
             if idx % 10 == 0:

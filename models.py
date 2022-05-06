@@ -19,7 +19,7 @@ def satellite_to_map_model():
     )
 
     # model.train()
-    model.save_examples('final', 20)
+    model.save_examples('final', 200)
 
 def segmentation_to_facade_model():
     folder = os.path.abspath('data/segmentation_to_facade')
@@ -34,7 +34,8 @@ def segmentation_to_facade_model():
         num_examples=3,
     )
 
-    model.train()
+    # model.train()
+    model.save_examples('final', 200)
 
 def horse_zebra():
     folder = os.path.abspath('data/horse_zebra')
@@ -80,7 +81,7 @@ def apple_orange():
 
 
 if __name__ == '__main__':
-    satellite_to_map_model()
-    # segmentation_to_facade_model()
+    # satellite_to_map_model()
+    segmentation_to_facade_model()
     # horse_zebra()
     # apple_orange()
